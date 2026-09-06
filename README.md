@@ -28,11 +28,44 @@ terraform show -json tfplan > tfplan.json
 
 # Analyze the plan
 python3 terraform_plan_analyzer.py tfplan.json
+
+# Offline demo (no Terraform/cloud required)
+python3 terraform_plan_analyzer.py --demo
+
+# Write a JSON report
+python3 terraform_plan_analyzer.py plan.json --output reports/plan-report.json
+
+# CI-friendly exit codes (2 when CRITICAL/HIGH findings exist)
+python3 terraform_plan_analyzer.py plan.json --exit-code-on-findings
 ```
+
+## Exit Codes
+
+- `0` — analysis completed (no CRITICAL/HIGH findings, or `--exit-code-on-findings` not passed)
+- `1` — file/missing-fixture/runtime error
+- `2` — analysis completed with CRITICAL or HIGH findings (`--exit-code-on-findings`)
 
 ## Requirements
 
 - Python 3.7+ (standard library only)
+
+## Live Lab Test Plan
+
+Runs entirely offline against the bundled `fixtures/tfplan.json` — no Terraform binary, no cloud account, no credentials.
+
+1. **Demo**: `python3 terraform_plan_analyzer.py --demo` — expect CRITICAL/HIGH/MEDIUM findings for the open SSH+MySQL SGs, public S3, admin IAM policy, public RDS, unencrypted EBS, HTTP-only Azure storage, and public SQS. Exit code `0`.
+2. **JSON report**: `python3 terraform_plan_analyzer.py --demo --output reports/demo.json` — verify `reports/demo.json` has `finding_count > 0`, per-finding `severity/category/address/message/remediation`, and a `summary` map.
+3. **CI exit code**: `python3 terraform_plan_analyzer.py --demo --exit-code-on-findings; echo $?` — expect `2`.
+4. **Unit tests**: `python3 -m unittest discover -s tests -v` — all pass (exercises the real parser + all three auditors against the fixture).
+5. **Live (optional)**: run `terraform plan -out=tfplan && terraform show -json tfplan > tfplan.json` in *your own* account, then analyze — detections use the same rule engine as the fixtures.
+
+## Metrics
+
+- 3 auditor engines: SecurityGroupAuditor, IAMPrivilegeEscalationAuditor, PublicExposureDetector
+- Detection rules exercised offline: Open Firewall Rule, Public Admin Port, Public Database Port, All Protocols Allowed, Empty Security Group, IAM Admin Access / Privilege Escalation / Broad Access / Role Chaining, Public S3 (ACL + policy), S3 Versioning Disabled, S3 Public Access Block disabled, Public RDS, RDS Unencrypted / No Backups, Unencrypted EBS, Azure Storage HTTP, Public SQS
+- Every finding carries a remediation string (`findings_to_json`)
+- Exit-code contract: `0` clean / `1` error / `2` findings (with `--exit-code-on-findings`)
+- Zero third-party dependencies; fixture mode exercises the exact same code path as live plan files
 
 ## Legal Disclaimer
 

@@ -608,13 +608,81 @@ class TerraformPlanAnalyzer:
         print("\n" + "=" * 70 + "\n")
 
 
+def findings_to_json(findings: List[Finding]) -> dict:
+    """Serialize findings into a JSON-ready report structure."""
+    severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+    counts = {}
+    for f in findings:
+        counts[f.severity] = counts.get(f.severity, 0) + 1
+    return {
+        "tool": "CL5-TerraformPlanAnalyzer",
+        "finding_count": len(findings),
+        "summary": counts,
+        "findings": [
+            {
+                "severity": f.severity,
+                "category": f.category,
+                "resource": f.resource,
+                "address": f.address,
+                "message": f.message,
+                "remediation": REMEDIATIONS.get(f.category, "Review and restrict the affected resource configuration."),
+            }
+            for f in sorted(findings, key=lambda x: severity_order.get(x.severity, 5))
+        ],
+    }
+
+
+REMEDIATIONS = {
+    "Open Firewall Rule": "Restrict inbound/outbound CIDR to specific trusted ranges.",
+    "Public Admin Port": "Do not expose SSH/RDP to 0.0.0.0/0; use a bastion host or VPN.",
+    "Public Database Port": "Keep database ports private; restrict to application subnet only.",
+    "All Protocols Allowed": "Scope protocol to a single expected protocol (e.g. tcp).",
+    "Empty Security Group": "Add explicit rules or remove unused security groups.",
+    "IAM Privilege Escalation": "Remove privileged action grants; apply least privilege.",
+    "IAM Admin Access": "Replace wildcard Action '*' with a scoped policy.",
+    "IAM Broad Access": "Restrict service-wide prefix actions to required resources.",
+    "Role Chaining": "Restrict sts:AssumeRole to trusted principals.",
+    "Public S3 Bucket": "Set ACL to private and add a public access block.",
+    "Public S3 Policy": "Remove Principal '*' Allow statements from bucket policy.",
+    "S3 Versioning Disabled": "Enable object versioning for data integrity and recovery.",
+    "S3 Public Access Not Blocked": "Enable all four public access block settings.",
+    "Public RDS Instance": "Disable publicly_accessible and place DB in a private subnet.",
+    "RDS Unencrypted Storage": "Enable storage_encrypted at instance creation.",
+    "RDS No Backups": "Set backup_retention_period >= 7 days.",
+    "Public ElastiCache": "Disable public access; use VPC-only endpoints.",
+    "Unencrypted EBS Volume": "Enable EBS encryption (default encryption or KMS key).",
+    "Azure Storage HTTP": "Set enable_https_traffic_only = true.",
+    "Public SQS Queue": "Scoped queue policy to specific accounts instead of '*'.",
+    "Public MQ Broker": "Disable public access on the MQ broker.",
+}
+
+
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="CL5 — Terraform Plan Analyzer")
-    parser.add_argument("plan_file", help="Terraform plan JSON file")
+    parser = argparse.ArgumentParser(
+        description="CL5 — Terraform Plan Analyzer (offline, no cloud access)")
+    parser.add_argument("plan_file", nargs="?", help="Terraform plan JSON file "
+                                                     "(omitted with --demo)")
+    parser.add_argument("--demo", action="store_true",
+                        help="Run offline demo against a bundled sample plan")
+    parser.add_argument("--output", "-o", default="",
+                        help="Write JSON report to this path")
+    parser.add_argument("--exit-code-on-findings", action="store_true",
+                        help="Exit nonzero if CRITICAL/HIGH findings exist (recommended for CI)")
     args = parser.parse_args()
 
     analyzer = TerraformPlanAnalyzer()
+    findings = []
+
+    if args.demo or not args.plan_file:
+        demo_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "fixtures", "tfplan.json")
+        if not os.path.isfile(demo_path):
+            print("Error: demo fixture not found. Run from the repo root.", file=sys.stderr)
+            sys.exit(1)
+        print("[*] Offline demo mode — scanning bundled sample plan (no cloud access)")
+        args.plan_file = demo_path
 
     try:
         findings = analyzer.analyze_file(args.plan_file)
@@ -627,10 +695,18 @@ def main():
 
     analyzer.print_report(findings)
 
-    critical = sum(1 for f in findings if f.severity == "CRITICAL")
-    if critical > 0:
-        sys.exit(2)
+    report = findings_to_json(findings)
+    if args.output:
+        with open(args.output, "w") as f:
+            json.dump(report, f, indent=2)
+        print(f"[+] JSON report written to {args.output}")
+
+    if args.exit_code_on_findings:
+        severities = {f.severity for f in findings}
+        if "CRITICAL" in severities or "HIGH" in severities:
+            return 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

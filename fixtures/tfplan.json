@@ -1,0 +1,135 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.5.7",
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_security_group.web_sg",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "web_sg",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "name": "web-sg",
+            "ingress": [
+              {"description": "ssh", "from_port": 22, "to_port": 22, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"]},
+              {"description": "mysql", "from_port": 3306, "to_port": 3306, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"]},
+              {"description": "web", "from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["10.0.0.0/8"]}
+            ],
+            "egress": [
+              {"from_port": 0, "to_port": 0, "protocol": "-1", "cidr_blocks": ["0.0.0.0/0"]}
+            ]
+          }
+        },
+        {
+          "address": "aws_security_group.db_sg",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "db_sg",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "name": "db-sg",
+            "ingress": [
+              {"from_port": 5432, "to_port": 5432, "protocol": "tcp", "source_security_group_id": "sg-123"}
+            ],
+            "egress": []
+          }
+        },
+        {
+          "address": "aws_s3_bucket.public_data",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "public_data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "my-public-data-bucket",
+            "acl": "public-read",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::my-public-data-bucket/*\"}]}",
+            "versioning": [{"enabled": false}]
+          }
+        },
+        {
+          "address": "aws_iam_policy.admin_policy",
+          "mode": "managed",
+          "type": "aws_iam_policy",
+          "name": "admin_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "admin-policy",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"*\"],\"Resource\":\"*\"}]}"
+          }
+        },
+        {
+          "address": "aws_db_instance.prod_db",
+          "mode": "managed",
+          "type": "aws_db_instance",
+          "name": "prod_db",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "identifier": "prod-db",
+            "publicly_accessible": true,
+            "storage_encrypted": false,
+            "backup_retention_period": 0
+          }
+        },
+        {
+          "address": "aws_ebs_volume.app_data",
+          "mode": "managed",
+          "type": "aws_ebs_volume",
+          "name": "app_data",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "encrypted": false,
+            "size": 100
+          }
+        },
+        {
+          "address": "azurerm_storage_account.diag",
+          "mode": "managed",
+          "type": "azurerm_storage_account",
+          "name": "diag",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "values": {
+            "name": "diagaccount",
+            "enable_https_traffic_only": false
+          }
+        },
+        {
+          "address": "aws_sqs_queue.orders",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "orders",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "name": "orders-queue",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":\"*\",\"Action\":\"sqs:SendMessage\",\"Resource\":\"arn:aws:sqs:*\"}]}"
+          }
+        },
+        {
+          "address": "aws_s3_bucket_public_access_block.secure",
+          "mode": "managed",
+          "type": "aws_s3_bucket_public_access_block",
+          "name": "secure",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "bucket": "my-public-data-bucket",
+            "block_public_acls": false,
+            "block_public_policy": false,
+            "ignore_public_acls": false,
+            "restrict_public_buckets": false
+          }
+        }
+      ]
+    }
+  }
+}
